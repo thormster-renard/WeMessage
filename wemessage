@@ -11,16 +11,34 @@
 #   - log les échanges sms
 #   - check multi sms
 #   - URGENT : permettre de quitter le programme à tout moment, donc check EXIT Programme
-
+#   - Fichier contacts.txt update juste après modif
 
 title="WeMessage - Envoi de SMS"
-CONTACT_FILE=$(find . -name "contacts.txt")
+
+CONTACT_FILE=$(find $HOME/ -name "contacts.txt")
+if [ "$CONTACT_FILE" = "" ]
+then
+    CONTACT_FILE="contacts.txt"
+fi
+
+# Fonction de récupération des contacts
+readFileContact()
+{
+    if [ -e "$CONTACT_FILE" ]
+    then
+        i=1
+        while read -r aLine;
+        do
+            listContacts[$i]="$aLine";
+            ((i++));
+        done < "$CONTACT_FILE"
+    fi
+}
 
 # Pairing
 tmp_id=$(kdeconnect-cli -a)
 device_id=$(echo "$tmp_id" | cut -c7-22 | sed '2d')
-test=$(kdeconnect-cli -d "$device_id" --pair)
-if [ $? -eq 0 ]
+if kdeconnect-cli -d "$device_id" --pair
 then
     kdialog --title "$title" --geometry=250x250 --msgbox "Périphérique associé !"
 else
@@ -31,60 +49,76 @@ fi
 # welcome
 kdialog --title "$title" --geometry=250x250 --msgbox "Bienvenue sur WeMessage !"
 
+# choix de la langue
+#langue=$(kdialog --title "$title" --geometry=250x250 --menu "Choix de ta langue | Choose your language :" a français b anglais)
+
+
 # Modifier le fichier de contacts
 if [ -e "$CONTACT_FILE" ]
 then
-    answer=$(kdialog --title "$title" --geometry=300x100+800+500 --yesno "Souhaites tu modifier ton fichier de contacts ?")
-    if [ $? -eq 0 ]
+    kdialog --title "$title" --geometry=300x100+800+500 --cancel-label "Quitter" --yesnocancel "Souhaites tu modifier ton fichier de contacts ?"
+    answer=$(echo "$?");
+    if [ "$answer" = 0 ]
     then
         kdialog --getopenfilename "$CONTACT_FILE" 'text/plain' >&2
-        if [ -x "$(command -v xdg-open)" ] #&& [ -z "$EDITOR" ]
+        if [ -x "$(command -v xdg-open)" ]
         then
             xdg-open "$CONTACT_FILE"
-        elif ! [ -x "$(command -v xdg-open)" ] && [ -n "$EDITOR" ]
+        elif ! [ -x "$(command -v xdg-open)" ] || [ -n "$EDITOR" ]
         then
             "${EDITOR}" "$CONTACT_FILE"
         else
-            kdialog --title "$title" --msgbox "Pour modifier ton fichier de contacts, tu as besoin d'un éditeur de texte, tu peux trouver et installer celui qui te conviens le mieux sur ce site : https://doc.ubuntu-fr.org/editeur_de_texte"
+            kdialog --title "$title" --sorry "Pour modifier ton fichier de contacts, tu as besoin d'un éditeur de texte, tu peux trouver et installer celui qui te conviens le mieux sur ce site : https://doc.ubuntu-fr.org/editeur_de_texte"
             exit
         fi
-    fi
-    else
-    answer=$(kdialog --title "$title" --geometry=300x100+800+500 --yesno "J'ai vu que tu n'avais pas de fichier de contact. Pour te simplifier tes envois, souhaites tu en créer un ?")
-    if [ $? -eq 0 ]
+    elif [ "$answer" = 2 ]
     then
-        echo -n > $CONTACT_FILE
-        name=$(kdialog --title "$title" --geometry=300x100+800+500 --textinputbox "Nom de votre contact :")
-        num=$(kdialog --title "$title" --geometry=300x100+800+500 --textinputbox "Numéro de téléphone :")
-        echo "$name-$num" > $CONTACT_FILE
-        echo -e >> $CONTACT_FILE
-        kdialog --title "$title" --geometry=300x100+800+500 --msgbox "Fichier de contact mis à jour. Si tu veux ajouter un autre contact, redemarre le programme"
-        exit
-    else
-        dest=$(kdialog --title "$title" --textinputbox "Numéro de votre contact :")
-        message=$(kdialog --title "$title" --geometry=300x100+800+500 --textinputbox "Et le message :")
-        kdeconnect-cli --destination "$dest" --device "$device_id" --send-sms "$message"
-        kdialog --title "$title" --geometry=200 --msgbox "Message envoyé !"
         exit
     fi
-fi
-
-# Récupération des contacts
-if [ -e "$CONTACT_FILE" ]
-then
-    i=1
-    while read -r aLine;
-    do
-        listProgs[$i]="$aLine";
-        ((i++));
-    done < "$CONTACT_FILE"
+else
+    kdialog --title "$title" --geometry=300x100+800+500 --yesnocancel "J'ai vu que tu n'avais pas de fichier de contact. Pour te simplifier tes envois, souhaites tu en créer un ?" --cancel-label "Quitter"
+    answer=$(echo "$?");
+    if [ "$answer" = 0 ]
+    then
+        echo > "$HOME/Documents/$CONTACT_FILE"
+        echo "NOM_DE_VOTRE_CONTACT-NUMERO_DE_TELEPHONE" > "$HOME/Documents/$CONTACT_FILE"
+        kdialog --title "$title" --geometry=300x100+800+500 --msgbox "Fichier de contact créé, si tu veux ajouter des contacts, redemarre le programme"
+        exit
+    elif [ "$answer" = 1 ]
+    then
+        dest=$(kdialog --title "$title" --geometry=300x100+800+500 --textinputbox "Numéro de votre contact :" "06..")
+        if [ "$dest" = "" ]
+        then
+            kdialog --title "$title" --error "Tu dois entrer le numéro de ton contact ;)"
+            exit
+        fi
+        message=$(kdialog --title "$title" --geometry=300x100+800+500 --textinputbox "Et le message :")
+        if [ "$message" = "" ]
+        then
+            kdialog --title "$title" --warningyesno "Attention ton message est vide, souhaites tu l'envoyer ?"
+            answer=$(echo "$?");
+            if [ "$answer" = 0 ]
+            then
+                kdeconnect-cli --destination "$dest" --device "$device_id" --send-sms "$message"
+               kdialog --title "$title" --geometry=200 --msgbox "Message envoyé !"
+            elif [ "$answer" = 1 ]
+            then
+                exit
+            fi
+        fi
+        exit
+    elif [ "$answer" = 2 ]
+    then
+        exit
+    fi
 fi
 
 #Choix du contact
-tmp=$(kdialog --title "$title" --geometry=300x100+800+500 --combobox "Choisis ton contact :" "${listProgs[@]}")
+readFileContact
+tmp=$(kdialog --title "$title" --geometry=300x100+800+500 --combobox "Choisis ton contact :" "${listContacts[@]}")
 if [ "$tmp" = "" ]
 then
-    kdialog --title "$title" --geometry=300x100+800+500 --error "Tu dois choisir un contact"
+    kdialog --title "$title" --geometry=300x100+800+500 --error "Tu dois choisir un contact ;)"
     exit
 else
     dest=$(expr "$tmp" : "[^a-Z]*\([a-Z]*\)")
