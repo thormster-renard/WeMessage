@@ -7,13 +7,10 @@
 #################################################
 
 # TODO
-#   - Pouvoir modifier/ajouter/supprimer un contact à tout moment
 #   - Renvoyer un sms
-#   - Pouvoir log les échanges sms
+#   - log les échanges sms
 #   - check multi sms
-#   - check pair || faire le pairing
 #   - URGENT : permettre de quitter le programme à tout moment, donc check EXIT Programme
-#   - Demander un choix d'éditeur si $EDITOR est vide
 
 
 title="WeMessage - Envoi de SMS"
