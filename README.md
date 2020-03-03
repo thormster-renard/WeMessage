@@ -21,7 +21,7 @@ Sur **Android**, installez l'app KDE Connect, disponible dans le Play Store
 
 ## Utilisation
 
-> username@domain:~$ ./WeMessage
+> username@domain:~$ ./wemessage
 
 
 
