@@ -1,0 +1,104 @@
+#!/bin/bash
+#################################################
+# WeMessage 2020 - thormster                    #
+# Programme d'envoi de SMS basé sur KDE Connect #
+# Version 2.7                                   #
+# Optimisé pour KDE                             #
+#################################################
+
+# TODO
+#   - Pouvoir modifier/ajouter/supprimer un contact à tout moment
+#   - Renvoyer un sms
+#   - Pouvoir log les échanges sms
+#   - check multi sms
+#   - check pair || faire le pairing
+#   - URGENT : permettre de quitter le programme à tout moment, donc check EXIT Programme
+#   - Demander un choix d'éditeur si $EDITOR est vide
+
+
+title="WeMessage - Envoi de SMS"
+CONTACT_FILE=$(find . -name "contacts.txt")
+
+# Pairing
+tmp_id=$(kdeconnect-cli -a)
+device_id=$(echo "$tmp_id" | cut -c7-22 | sed '2d')
+test=$(kdeconnect-cli -d "$device_id" --pair)
+if [ $? -eq 0 ]
+then
+    kdialog --title "$title" --geometry=250x250 --msgbox "Périphérique associé !"
+else
+    kdialog --title "$title" --geometry=250x250 --msgbox "Périphérique non associé ! Tentative de pairing. Vérifie que KDE Connect est bien lancé sur ton smartphane et ton ordinateur"
+    exit
+fi
+
+# welcome
+kdialog --title "$title" --geometry=250x250 --msgbox "Bienvenue sur WeMessage !"
+
+# Modifier le fichier de contacts
+if [ -e "$CONTACT_FILE" ]
+then
+    answer=$(kdialog --title "$title" --geometry=300x100+800+500 --yesno "Souhaites tu modifier ton fichier de contacts ?")
+    if [ $? -eq 0 ]
+    then
+        kdialog --getopenfilename "$CONTACT_FILE" 'text/plain' >&2
+        if [ -x "$(command -v xdg-open)" ] #&& [ -z "$EDITOR" ]
+        then
+            xdg-open "$CONTACT_FILE"
+        elif ! [ -x "$(command -v xdg-open)" ] && [ -n "$EDITOR" ]
+        then
+            "${EDITOR}" "$CONTACT_FILE"
+        else
+            kdialog --title "$title" --msgbox "Pour modifier ton fichier de contacts, tu as besoin d'un éditeur de texte, tu peux trouver et installer celui qui te conviens le mieux sur ce site : https://doc.ubuntu-fr.org/editeur_de_texte"
+            exit
+        fi
+    fi
+    else
+    answer=$(kdialog --title "$title" --geometry=300x100+800+500 --yesno "J'ai vu que tu n'avais pas de fichier de contact. Pour te simplifier tes envois, souhaites tu en créer un ?")
+    if [ $? -eq 0 ]
+    then
+        echo -n > $CONTACT_FILE
+        name=$(kdialog --title "$title" --geometry=300x100+800+500 --textinputbox "Nom de votre contact :")
+        num=$(kdialog --title "$title" --geometry=300x100+800+500 --textinputbox "Numéro de téléphone :")
+        echo "$name-$num" > $CONTACT_FILE
+        echo -e >> $CONTACT_FILE
+        kdialog --title "$title" --geometry=300x100+800+500 --msgbox "Fichier de contact mis à jour. Si tu veux ajouter un autre contact, redemarre le programme"
+        exit
+    else
+        dest=$(kdialog --title "$title" --textinputbox "Numéro de votre contact :")
+        message=$(kdialog --title "$title" --geometry=300x100+800+500 --textinputbox "Et le message :")
+        kdeconnect-cli --destination "$dest" --device "$device_id" --send-sms "$message"
+        kdialog --title "$title" --geometry=200 --msgbox "Message envoyé !"
+        exit
+    fi
+fi
+
+# Récupération des contacts
+if [ -e "$CONTACT_FILE" ]
+then
+    i=1
+    while read -r aLine;
+    do
+        listProgs[$i]="$aLine";
+        ((i++));
+    done < "$CONTACT_FILE"
+fi
+
+#Choix du contact
+tmp=$(kdialog --title "$title" --geometry=300x100+800+500 --combobox "Choisis ton contact :" "${listProgs[@]}")
+if [ "$tmp" = "" ]
+then
+    kdialog --title "$title" --geometry=300x100+800+500 --error "Tu dois choisir un contact"
+    exit
+else
+    dest=$(expr "$tmp" : "[^a-Z]*\([a-Z]*\)")
+    num=$(expr "$tmp" : "[^0-9]*\([0-9]*\)")
+    message=$(kdialog --title "$title" --geometry=250x50+800+500 --textinputbox "Message pour $dest :")
+    if [ "$message" = "" ]
+    then
+        kdialog --title "$title" --geometry=250x250+800+500 --error "Tu n'as rien tappé.. Tu fais comme tu veux mais bon.. si c'est pour me déranger pour rien.."
+        exit
+    else
+        kdeconnect-cli --destination "$num" --device "$device_id" --send-sms "$message"
+        kdialog --title "$title" --geometry=200 --msgbox "Message envoyé !"
+    fi
+fi
