@@ -6,9 +6,11 @@ WeMessage est un script de gestion d'envoi de SMS basé sur KDE Connect. Il perm
 
 ## Installation
 
-Vous devez avoir précédemment installé kdeconnect
+Vous devez avoir précédemment installé kdeconnect 
 
-> username@domain:~$ sudo apt-get install kdeconnect 
+> username@domain:~$ sudo apt-get install kdeconnect
+
+Sur Android, installez l'app KDE Connect, disponible dans le Play Store
 
 ## Utilisation
 > username@domain:~$ ./WeMessage
