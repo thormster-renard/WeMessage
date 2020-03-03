@@ -1,9 +1,13 @@
 # WeMessage
 
-Description
+## Description
 
 WeMessage est un script de gestion d'envoi de SMS basé sur KDE Connect. Il permet la gestion d'un fichier de contacts ainsi que l'envoi de SMS.
 
-Utilisation
+## Utilisation
 
 username@domain ?> ./WeMessage
+
+### Basé sur KDE Connect
+https://github.com/KDE/kdeconnect-kde
+
